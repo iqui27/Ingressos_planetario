@@ -41,7 +41,7 @@ def carregar_dados():
     return df
 
 def verificar_capacidade(sessao, data):
-    docs = db.collection('Ingressos').where('sessao', '==', sessao).where('data', '==', data).stream()
+    docs = db.collection('Ingressos').where(filter=('sessao', '==', sessao)).where(filter=('data', '==', data)).stream()
     total_ingressos = sum(doc.to_dict()['qtd'] for doc in docs)
     return 80 - total_ingressos
 
