@@ -6,12 +6,14 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import time
 
-# Load Firebase credentials from Streamlit secrets
-firebase_credentials = st.secrets["firebase"]
-# Check if the Firebase app is already initialized
-if not firebase_admin._apps:
-    cred = credentials.Certificate(firebase_credentials)
-    firebase_admin.initialize_app(cred)
+# Verifica se o app já foi inicializado
+cred_path = 'Planetario Service Account.json'
+if not os.path.exists(cred_path):
+    st.error(f"Arquivo de credenciais não encontrado no caminho: {cred_path}")
+else:
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(cred_path)
+        firebase_admin.initialize_app(cred)
 
 # Inicializa o Firestore
 db = firestore.client()
