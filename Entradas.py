@@ -6,10 +6,11 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import time
 
-# Verifica se o app já foi inicializado
+# Load Firebase credentials from Streamlit secrets
+firebase_credentials = t.secrets["firebase"]['my_project_settings']
+# Check if the Firebase app is already initialized
 if not firebase_admin._apps:
-    cred_path = 'Planetario Service Account.json'
-    cred = credentials.Certificate(cred_path)
+    cred = credentials.Certificate(firebase_credentials)
     firebase_admin.initialize_app(cred)
 
 # Inicializa o Firestore
