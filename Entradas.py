@@ -7,7 +7,7 @@ from firebase_admin import credentials, firestore
 import time
 
 # Load Firebase credentials from Streamlit secrets
-firebase_credentials = t.secrets["firebase"]['my_project_settings']
+firebase_credentials = st.secrets["firebase"]
 # Check if the Firebase app is already initialized
 if not firebase_admin._apps:
     cred = credentials.Certificate(firebase_credentials)
