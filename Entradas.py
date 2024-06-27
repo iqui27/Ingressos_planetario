@@ -5,6 +5,7 @@ import calendar
 import firebase_admin
 from firebase_admin import credentials, firestore
 import time
+import os
 
 # Verifica se o app já foi inicializado
 cred_path = 'Planetario Service Account.json'
