@@ -5,7 +5,6 @@ import calendar
 import firebase_admin
 from firebase_admin import credentials, firestore
 import os
-import json
 
 # Verifica se o app já foi inicializado
 if not firebase_admin._apps:
