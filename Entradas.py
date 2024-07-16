@@ -4,17 +4,38 @@ from datetime import datetime, timedelta, date
 import calendar
 import firebase_admin
 from firebase_admin import credentials, firestore
-import time
 import os
+import json
 
 # Verifica se o app já foi inicializado
-cred_path = 'Planetario Service Account.json'
-if not os.path.exists(cred_path):
-    st.error(f"Arquivo de credenciais não encontrado no caminho: {cred_path}")
-else:
-    if not firebase_admin._apps:
-        cred = credentials.Certificate(cred_path)
+if not firebase_admin._apps:
+    try:
+        # Cria um dicionário com as credenciais do Firebase usando variáveis de ambiente
+        cred_dict = {
+            "type": os.environ.get("type"),
+            "project_id": os.environ.get("project_id"),
+            "private_key_id": os.environ.get("private_key_id"),
+            "private_key": os.environ.get("private_key").replace("\\n", "\n"),  # Substitui \\n por \n
+            "client_email": os.environ.get("client_email"),
+            "client_id": os.environ.get("client_id"),
+            "auth_uri": os.environ.get("auth_uri"),
+            "token_uri": os.environ.get("token_uri"),
+            "auth_provider_x509_cert_url": os.environ.get("auth_provider_x509_cert_url"),
+            "client_x509_cert_url": os.environ.get("client_x509_cert_url"),
+            "universe_domain": os.environ.get("universe_domain")
+        }
+        
+        # Cria o objeto de credenciais
+        cred = credentials.Certificate(cred_dict)
+        
+        # Inicializa o app do Firebase
         firebase_admin.initialize_app(cred)
+        
+        st.success("Firebase inicializado com sucesso!")
+    except Exception as e:
+        st.error(f"Erro ao inicializar Firebase: {str(e)}")
+else:
+    st.info("Firebase já está inicializado.")
 
 # Inicializa o Firestore
 db = firestore.client()
@@ -41,20 +62,24 @@ def carregar_dados():
     return df
 
 def verificar_capacidade(sessao, data):
-    docs = db.collection('Ingressos').where(filter=('sessao', '==', sessao)).where(filter=('data', '==', data)).stream()
+    docs = db.collection('Ingressos').where('sessao', '==', sessao).where('data', '==', data).stream()
     total_ingressos = sum(doc.to_dict()['qtd'] for doc in docs)
     return 80 - total_ingressos
 
 # Função para adicionar ingressos
 def adicionar_ingresso(sessao, data, qtd, nome):
     try:
-        db.collection('Ingressos').add({
-            'sessao': sessao,
-            'data': data,
-            'qtd': qtd,
-            'nome': nome
-        })
-        st.success("Ingresso adicionado com sucesso!")
+        capacidade_restante = verificar_capacidade(sessao, data)
+        if qtd <= capacidade_restante:
+            db.collection('Ingressos').add({
+                'sessao': sessao,
+                'data': data,
+                'qtd': qtd,
+                'nome': nome
+            })
+            st.success("Ingresso adicionado com sucesso!")
+        else:
+            st.error(f"A capacidade da sessão {sessao} é insuficiente. Restam {capacidade_restante} ingressos.")
     except Exception as e:
         st.error(f"Erro ao adicionar ingresso: {e}")
 
@@ -123,107 +148,82 @@ def adicionar_entrada(entrada):
 # Título da aplicação
 st.title("Sistema de Entradas do Planetário de Brasília")
 
-# Controle de estado para navegação
-if 'page' not in st.session_state:
-    st.session_state['page'] = 'form'
+# Formulário de Visitação
+st.header("Formulario de Visitação")
 
-def go_to_thank_you_page():
-    st.session_state['page'] = 'thank_you'
+tipo_visita = st.radio("Tipo de Visita", ["Escola", "Normal", "Instituição"])
 
-# Página de agradecimento
-def thank_you_page():
-    st.header("Obrigado pela Visita!")
-    st.write("Sua visita foi registrada com sucesso. Aguardamos você em nosso planetário!")
+# Inicializar variáveis comuns
+nome_escola, serie_escolar, tipo_ensino, tipo_escola = "", "", "", ""
+nome_visitante, cidade, estado, pais = "", "", "", ""
+nome_instituicao, nome_responsavel = "", ""
 
-# Página de formulário
-def form_page():
-    st.header("Formulário de Visitação")
+if tipo_visita == "Escola":
+    nome_escola = st.text_input("Nome da Escola")
+    serie_escolar = st.text_input("Série Escolar")
+    tipo_ensino = st.selectbox("Ensino", ["Maternal", "Fundamental I", "Fundamental II", "Médio", "Superior", "Outros"])
+    tipo_escola = st.radio("Tipo", ["Privada", "Pública"])
+    cidade = st.text_input("Cidade")
+    estado = st.selectbox("Estado", estados_brasil)
+    pais = st.text_input("País")
+elif tipo_visita == "Normal":
+    nome_visitante = st.text_input("Nome do Visitante")
+    cidade = st.text_input("Cidade")
+    estado = st.selectbox("Estado", estados_brasil)
+    pais = st.text_input("País")
+elif tipo_visita == "Instituição":
+    nome_instituicao = st.text_input("Nome da Instituição")
+    nome_responsavel = st.text_input("Responsável")
+    cidade = st.text_input("Cidade")
+    estado = st.selectbox("Estado", estados_brasil)
+    pais = st.text_input("País")
+
+data_visita = st.date_input("Data da Visita", min_value=datetime.now().date())
+if isinstance(data_visita, datetime):
+    data_visita = data_visita.date()
+
+qtd_visitantes = st.number_input("Quantidade de Visitantes", min_value=1, value=1)
+visita_cupula = st.radio("Visita na Cúpula?", ["Sim", "Não"])
+
+sessao_selecionada = None
+if visita_cupula == "Sim":
+    sessoes_disponiveis = carregar_sessoes_disponiveis(data_visita, tipo_visita)
+    sessao_opcoes = [sessao['sessao'] for sessao in sessoes_disponiveis]
     
-    tipo_visita = st.radio("Tipo de Visita", ["Escola", "Normal", "Instituição"])
+    if sessao_opcoes:
+        sessao_selecionada = st.selectbox("Selecione o Horário da Sessão", sessao_opcoes)
+        capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
+        st.write(f"Capacidade restante para a sessão {sessao_selecionada}: {capacidade_restante} ingressos")
+    else:
+        st.warning("Não há sessões disponíveis para esta data.")
+        sessao_selecionada = None
 
-    # Inicializar variáveis comuns
-    nome_escola, serie_escolar, tipo_ensino, tipo_escola = "", "", "", ""
-    nome_visitante, cidade, estado, pais = "", "", "", ""
-    nome_instituicao, nome_responsavel = "", ""
-
-    if tipo_visita == "Escola":
-        nome_escola = st.text_input("Nome da Escola")
-        serie_escolar = st.text_input("Série Escolar")
-        tipo_ensino = st.selectbox("Ensino", ["Maternal", "Fundamental I", "Fundamental II", "Médio", "Superior", "Outros"])
-        tipo_escola = st.radio("Tipo", ["Privada", "Pública"])
-        cidade = st.text_input("Cidade")
-        estado = st.selectbox("Estado", estados_brasil)
-        pais = st.text_input("País")
-    elif tipo_visita == "Normal":
-        nome_visitante = st.text_input("Nome do Visitante")
-        cidade = st.text_input("Cidade")
-        estado = st.selectbox("Estado", estados_brasil)
-        pais = st.text_input("País")
-    elif tipo_visita == "Instituição":
-        nome_instituicao = st.text_input("Nome da Instituição")
-        nome_responsavel = st.text_input("Responsável")
-        cidade = st.text_input("Cidade")
-        estado = st.selectbox("Estado", estados_brasil)
-        pais = st.text_input("País")
-
-    data_visita = st.date_input("Data da Visita", min_value=datetime.now().date())
-    if isinstance(data_visita, datetime):
-        data_visita = data_visita.date()
-
-    qtd_visitantes = st.number_input("Quantidade de Visitantes", min_value=1, value=1)
-    visita_cupula = st.radio("Visita na Cúpula?", ["Sim", "Não"])
-
-    sessao_selecionada = None
-    if visita_cupula == "Sim":
-        sessoes_disponiveis = carregar_sessoes_disponiveis(data_visita, tipo_visita)
-        sessao_opcoes = [sessao['sessao'] for sessao in sessoes_disponiveis]
-        
-        if sessao_opcoes:
-            sessao_selecionada = st.selectbox("Selecione o Horário da Sessão", sessao_opcoes)
-            capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
-            st.write(f"Capacidade restante para a sessão {sessao_selecionada}: {capacidade_restante} ingressos")
+if st.button("Adicionar Entrada"):
+    nome = nome_escola if tipo_visita == "Escola" else (nome_instituicao if tipo_visita == "Instituição" else nome_visitante)
+    
+    nova_entrada = {
+        "Nome da Escola": nome_escola if tipo_visita == "Escola" else "",
+        "Série Escolar": serie_escolar if tipo_visita == "Escola" else "",
+        "Ensino": tipo_ensino if tipo_visita == "Escola" else "",
+        "Tipo": tipo_escola if tipo_visita == "Escola" else "",
+        "Nome": nome_visitante if tipo_visita == "Normal" else "",
+        "Cidade": cidade,
+        "Estado": estado,
+        "País": pais,
+        "Nome da Instituição": nome_instituicao if tipo_visita == "Instituição" else "",
+        "Responsável": nome_responsavel if tipo_visita == "Instituição" else "",
+        "Dia da Visita": data_visita.isoformat(),
+        "Quantidade de Visitantes": qtd_visitantes,
+        "Cúpula": visita_cupula,
+        "Tipo de Visita": tipo_visita
+    }
+    
+    if visita_cupula == "Sim" and sessao_selecionada:
+        capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
+        if qtd_visitantes <= capacidade_restante:
+            adicionar_entrada(nova_entrada)  # Adicionar a entrada antes da verificação da cúpula
+            adicionar_ingresso(sessao_selecionada, data_visita.isoformat(), qtd_visitantes, nome)
         else:
-            st.warning("Não há sessões disponíveis para esta data.")
-            sessao_selecionada = None
-
-    if st.button("Adicionar Entrada"):
-        nome = nome_escola if tipo_visita == "Escola" else (nome_instituicao if tipo_visita == "Instituição" else nome_visitante)
-        
-        nova_entrada = {
-            "Nome da Escola": nome_escola if tipo_visita == "Escola" else "",
-            "Série Escolar": serie_escolar if tipo_visita == "Escola" else "",
-            "Ensino": tipo_ensino if tipo_visita == "Escola" else "",
-            "Tipo": tipo_escola if tipo_visita == "Escola" else "",
-            "Nome": nome_visitante if tipo_visita == "Normal" else "",
-            "Cidade": cidade,
-            "Estado": estado,
-            "País": pais,
-            "Nome da Instituição": nome_instituicao if tipo_visita == "Instituição" else "",
-            "Responsável": nome_responsavel if tipo_visita == "Instituição" else "",
-            "Dia da Visita": data_visita.isoformat(),
-            "Quantidade de Visitantes": qtd_visitantes,
-            "Cúpula": visita_cupula,
-            "Tipo de Visita": tipo_visita
-        }
-        
-        if visita_cupula == "Sim" and sessao_selecionada:
-            capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
-            if qtd_visitantes <= capacidade_restante:
-                adicionar_entrada(nova_entrada)  # Adicionar a entrada antes da verificação da cúpula
-                adicionar_ingresso(sessao_selecionada, data_visita.isoformat(), qtd_visitantes, nome)
-                time.sleep(1)
-                go_to_thank_you_page()
-                st.experimental_rerun()       
-            else:
-                st.error(f"A capacidade da sessão {sessao_selecionada} é insuficiente. Restam {capacidade_restante} ingressos.")
-        else:
-            adicionar_entrada(nova_entrada)
-            time.sleep(1)
-            go_to_thank_you_page()
-            st.experimental_rerun()
-
-# Lógica para mostrar a página correta
-if st.session_state['page'] == 'form':
-    form_page()
-elif st.session_state['page'] == 'thank_you':
-    thank_you_page()
+            st.error(f"A capacidade da sessão {sessao_selecionada} é insuficiente. Restam {capacidade_restante} ingressos.")
+    else:
+        adicionar_entrada(nova_entrada)
