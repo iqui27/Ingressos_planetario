@@ -143,13 +143,26 @@ def adicionar_entrada(entrada):
     except Exception as e:
         st.error(f"Erro ao adicionar entrada: {e}")
         st.write(e)  # Mensagem de depuração
-# No início do seu script, após as importações e inicializações
-placeholder = st.empty()
+# Inicialize o session_state se ainda não existir
 
-with placeholder.container():
-    # Título da aplicação
-    st.title("Sistema de Entradas do Planetário de Brasília")
+if 'page' not in st.session_state:
+    st.session_state.page = 'form'
 
+# Função para mudar para a página de agradecimento
+def show_thank_you():
+    st.session_state.page = 'thank_you'
+
+# Função para voltar ao formulário
+def back_to_form():
+    st.session_state.page = 'form'
+
+
+# Título da aplicação
+st.title("Sistema de Entradas do Planetário de Brasília")
+
+
+# Página do formulário
+def show_form():
     # Formulário de Visitação
     st.header("Formulario de Visitação")
 
@@ -236,42 +249,47 @@ with placeholder.container():
                 st.error(f"A capacidade da sessão {sessao_selecionada} é insuficiente. Restam {capacidade_restante} ingressos.")
         else:
             adicionar_entrada(nova_entrada)
-            entrada_adicionada = True
-        
+
         if entrada_adicionada:
-            # Limpa todo o conteúdo anterior
-            placeholder.empty()
+            show_thank_you()
+        else:
+            st.error("Erro ao adicionar entrada.")
             
-            # Cria a nova página de agradecimento
-            with placeholder.container():
-                st.markdown(
-                    """
-                    <style>
-                    .stApp {
-                        background-color: black;
-                    }
-                    .stButton button {
-                        background-color: #4CAF50;
-                        color: white;
-                        padding: 10px 24px;
-                        border: none;
-                        border-radius: 4px;
-                        cursor: pointer;
-                    }
-                    </style>
-                    """,
-                    unsafe_allow_html=True
-                )
-                st.markdown(
-                    """
-                    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;">
-                        <h1 style="color: white; text-align: center;">Obrigado por enviar seus dados!</h1>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-                st.balloons()
-                
-                if st.button("Voltar ao Formulário"):
-                    # Recarrega a página para mostrar o formulário novamente
-                    st.experimental_rerun()
+# Página de agradecimento
+def show_thank_you_page():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background-color: black;
+        }
+        .stButton button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        """
+        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;">
+            <h1 style="color: white; text-align: center;">Obrigado por enviar seus dados!</h1>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.balloons()
+    
+    if st.button("Voltar ao Formulário"):
+        back_to_form()
+
+# Controle principal da aplicação
+if st.session_state.page == 'form':
+    show_form()
+elif st.session_state.page == 'thank_you':
+    show_thank_you_page()  
