@@ -143,153 +143,97 @@ def adicionar_entrada(entrada):
     except Exception as e:
         st.error(f"Erro ao adicionar entrada: {e}")
         st.write(e)  # Mensagem de depuração
-# Inicialize o session_state se ainda não existir
 
-if 'page' not in st.session_state:
-    st.session_state.page = 'form'
-
-# Função para mudar para a página de agradecimento
-def show_thank_you():
-    st.session_state.page = 'thank_you'
-
-# Função para voltar ao formulário
-def back_to_form():
-    st.session_state.page = 'form'
 
 
 # Título da aplicação
 st.title("Sistema de Entradas do Planetário de Brasília")
 
 
-# Página do formulário
-def show_form():
-    # Formulário de Visitação
-    st.header("Formulario de Visitação")
 
-    tipo_visita = st.radio("Tipo de Visita", ["Escola", "Normal", "Instituição"])
+# Formulário de Visitação
+st.header("Formulario de Visitação")
 
-    # Inicializar variáveis comuns
-    nome_escola, serie_escolar, tipo_ensino, tipo_escola = "", "", "", ""
-    nome_visitante, cidade, estado, pais = "", "", "", ""
-    nome_instituicao, nome_responsavel = "", ""
-    idade, etnia = "", ""
+tipo_visita = st.radio("Tipo de Visita", ["Escola", "Normal", "Instituição"])
 
-    if tipo_visita == "Escola":
-        nome_escola = st.text_input("Nome da Escola")
-        serie_escolar = st.text_input("Série Escolar")
-        tipo_ensino = st.selectbox("Ensino", ["Maternal", "Fundamental I", "Fundamental II", "Médio", "Superior", "Outros"])
-        tipo_escola = st.radio("Tipo", ["Privada", "Pública"])
-        cidade = st.text_input("Cidade")
-        estado = st.selectbox("Estado", estados_brasil)
-        pais = st.text_input("País")
-    elif tipo_visita == "Normal":
-        nome_visitante = st.text_input("Nome do Visitante")
-        idade = st.number_input("Idade", min_value=0, max_value=120, value=18)
-        etnia = st.selectbox("Etnia", ["Branco", "Preto", "Pardo", "Amarelo", "Indígena", "Outro"])
-        cidade = st.text_input("Cidade")
-        estado = st.selectbox("Estado", estados_brasil)
-        pais = st.text_input("País")
-    elif tipo_visita == "Instituição":
-        nome_instituicao = st.text_input("Nome da Instituição")
-        nome_responsavel = st.text_input("Responsável")
-        cidade = st.text_input("Cidade")
-        estado = st.selectbox("Estado", estados_brasil)
-        pais = st.text_input("País")
+# Inicializar variáveis comuns
+nome_escola, serie_escolar, tipo_ensino, tipo_escola = "", "", "", ""
+nome_visitante, cidade, estado, pais = "", "", "", ""
+nome_instituicao, nome_responsavel = "", ""
+idade, etnia = "", ""
 
-    data_visita = st.date_input("Data da Visita", min_value=datetime.now().date())
-    if isinstance(data_visita, datetime):
-        data_visita = data_visita.date()
+if tipo_visita == "Escola":
+    nome_escola = st.text_input("Nome da Escola")
+    serie_escolar = st.text_input("Série Escolar")
+    tipo_ensino = st.selectbox("Ensino", ["Maternal", "Fundamental I", "Fundamental II", "Médio", "Superior", "Outros"])
+    tipo_escola = st.radio("Tipo", ["Privada", "Pública"])
+    cidade = st.text_input("Cidade")
+    estado = st.selectbox("Estado", estados_brasil)
+    pais = st.text_input("País")
+elif tipo_visita == "Normal":
+    nome_visitante = st.text_input("Nome do Visitante")
+    idade = st.number_input("Idade", min_value=0, max_value=120, value=18)
+    etnia = st.selectbox("Etnia", ["Branco", "Preto", "Pardo", "Amarelo", "Indígena", "Outro"])
+    cidade = st.text_input("Cidade")
+    estado = st.selectbox("Estado", estados_brasil)
+    pais = st.text_input("País")
+elif tipo_visita == "Instituição":
+    nome_instituicao = st.text_input("Nome da Instituição")
+    nome_responsavel = st.text_input("Responsável")
+    cidade = st.text_input("Cidade")
+    estado = st.selectbox("Estado", estados_brasil)
+    pais = st.text_input("País")
 
-    qtd_visitantes = st.number_input("Quantidade de Visitantes", min_value=1, value=1)
-    visita_cupula = st.radio("Visita na Cúpula?", ["Sim", "Não"])
+data_visita = st.date_input("Data da Visita", min_value=datetime.now().date())
+if isinstance(data_visita, datetime):
+    data_visita = data_visita.date()
 
-    sessao_selecionada = None
-    if visita_cupula == "Sim":
-        sessoes_disponiveis = carregar_sessoes_disponiveis(data_visita, tipo_visita)
-        sessao_opcoes = [sessao['sessao'] for sessao in sessoes_disponiveis]
-        
-        if sessao_opcoes:
-            sessao_selecionada = st.selectbox("Selecione o Horário da Sessão", sessao_opcoes)
-            capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
-            st.write(f"Capacidade restante para a sessão {sessao_selecionada}: {capacidade_restante} ingressos")
-        else:
-            st.warning("Não há sessões disponíveis para esta data.")
-            sessao_selecionada = None
+qtd_visitantes = st.number_input("Quantidade de Visitantes", min_value=1, value=1)
+visita_cupula = st.radio("Visita na Cúpula?", ["Sim", "Não"])
 
-    if st.button("Adicionar Entrada"):
-        nome = nome_escola if tipo_visita == "Escola" else (nome_instituicao if tipo_visita == "Instituição" else nome_visitante)
-        
-        nova_entrada = {
-            "Nome da Escola": nome_escola if tipo_visita == "Escola" else "",
-            "Série Escolar": serie_escolar if tipo_visita == "Escola" else "",
-            "Ensino": tipo_ensino if tipo_visita == "Escola" else "",
-            "Tipo": tipo_escola if tipo_visita == "Escola" else "",
-            "Nome": nome_visitante if tipo_visita == "Normal" else "",
-            "Idade": idade if tipo_visita == "Normal" else "",
-            "Etnia": etnia if tipo_visita == "Normal" else "",
-            "Cidade": cidade,
-            "Estado": estado,
-            "País": pais,
-            "Nome da Instituição": nome_instituicao if tipo_visita == "Instituição" else "",
-            "Responsável": nome_responsavel if tipo_visita == "Instituição" else "",
-            "Dia da Visita": data_visita.isoformat(),
-            "Quantidade de Visitantes": qtd_visitantes,
-            "Cúpula": visita_cupula,
-            "Tipo de Visita": tipo_visita
-        }
-        
-        entrada_adicionada = False
-        if visita_cupula == "Sim" and sessao_selecionada:
-            capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
-            if qtd_visitantes <= capacidade_restante:
-                adicionar_entrada(nova_entrada)
-                adicionar_ingresso(sessao_selecionada, data_visita.isoformat(), qtd_visitantes, nome)
-                entrada_adicionada = True
-            else:
-                st.error(f"A capacidade da sessão {sessao_selecionada} é insuficiente. Restam {capacidade_restante} ingressos.")
-        else:
-            adicionar_entrada(nova_entrada)
-
-        if entrada_adicionada:
-            show_thank_you()
-        else:
-            st.error("Erro ao adicionar entrada.")
-            
-# Página de agradecimento
-def show_thank_you_page():
-    st.markdown(
-        """
-        <style>
-        .stApp {
-            background-color: black;
-        }
-        .stButton button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 24px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        """
-        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;">
-            <h1 style="color: white; text-align: center;">Obrigado por enviar seus dados!</h1>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    st.balloons()
+sessao_selecionada = None
+if visita_cupula == "Sim":
+    sessoes_disponiveis = carregar_sessoes_disponiveis(data_visita, tipo_visita)
+    sessao_opcoes = [sessao['sessao'] for sessao in sessoes_disponiveis]
     
-    if st.button("Voltar ao Formulário"):
-        back_to_form()
+    if sessao_opcoes:
+        sessao_selecionada = st.selectbox("Selecione o Horário da Sessão", sessao_opcoes)
+        capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
+        st.write(f"Capacidade restante para a sessão {sessao_selecionada}: {capacidade_restante} ingressos")
+    else:
+        st.warning("Não há sessões disponíveis para esta data.")
+        sessao_selecionada = None
 
-# Controle principal da aplicação
-if st.session_state.page == 'form':
-    show_form()
-elif st.session_state.page == 'thank_you':
-    show_thank_you_page()  
+if st.button("Adicionar Entrada"):
+    nome = nome_escola if tipo_visita == "Escola" else (nome_instituicao if tipo_visita == "Instituição" else nome_visitante)
+    
+    nova_entrada = {
+        "Nome da Escola": nome_escola if tipo_visita == "Escola" else "",
+        "Série Escolar": serie_escolar if tipo_visita == "Escola" else "",
+        "Ensino": tipo_ensino if tipo_visita == "Escola" else "",
+        "Tipo": tipo_escola if tipo_visita == "Escola" else "",
+        "Nome": nome_visitante if tipo_visita == "Normal" else "",
+        "Idade": idade if tipo_visita == "Normal" else "",
+        "Etnia": etnia if tipo_visita == "Normal" else "",
+        "Cidade": cidade,
+        "Estado": estado,
+        "País": pais,
+        "Nome da Instituição": nome_instituicao if tipo_visita == "Instituição" else "",
+        "Responsável": nome_responsavel if tipo_visita == "Instituição" else "",
+        "Dia da Visita": data_visita.isoformat(),
+        "Quantidade de Visitantes": qtd_visitantes,
+        "Cúpula": visita_cupula,
+        "Tipo de Visita": tipo_visita
+    }
+    
+    entrada_adicionada = False
+    if visita_cupula == "Sim" and sessao_selecionada:
+        capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
+        if qtd_visitantes <= capacidade_restante:
+            adicionar_entrada(nova_entrada)
+            adicionar_ingresso(sessao_selecionada, data_visita.isoformat(), qtd_visitantes, nome)
+            entrada_adicionada = True
+        else:
+            st.error(f"A capacidade da sessão {sessao_selecionada} é insuficiente. Restam {capacidade_restante} ingressos.")
+    else:
+        adicionar_entrada(nova_entrada)
