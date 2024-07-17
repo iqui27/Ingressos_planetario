@@ -156,6 +156,7 @@ tipo_visita = st.radio("Tipo de Visita", ["Escola", "Normal", "Instituição"])
 nome_escola, serie_escolar, tipo_ensino, tipo_escola = "", "", "", ""
 nome_visitante, cidade, estado, pais = "", "", "", ""
 nome_instituicao, nome_responsavel = "", ""
+idade, etnia = "", ""
 
 if tipo_visita == "Escola":
     nome_escola = st.text_input("Nome da Escola")
@@ -167,6 +168,8 @@ if tipo_visita == "Escola":
     pais = st.text_input("País")
 elif tipo_visita == "Normal":
     nome_visitante = st.text_input("Nome do Visitante")
+    idade = st.number_input("Idade", min_value=0, max_value=120, value=18)
+    etnia = st.selectbox("Etnia", ["Branco", "Preto", "Pardo", "Amarelo", "Indígena", "Outro"])
     cidade = st.text_input("Cidade")
     estado = st.selectbox("Estado", estados_brasil)
     pais = st.text_input("País")
@@ -206,6 +209,8 @@ if st.button("Adicionar Entrada"):
         "Ensino": tipo_ensino if tipo_visita == "Escola" else "",
         "Tipo": tipo_escola if tipo_visita == "Escola" else "",
         "Nome": nome_visitante if tipo_visita == "Normal" else "",
+        "Idade": idade if tipo_visita == "Normal" else "",
+        "Etnia": etnia if tipo_visita == "Normal" else "",
         "Cidade": cidade,
         "Estado": estado,
         "País": pais,
@@ -217,12 +222,36 @@ if st.button("Adicionar Entrada"):
         "Tipo de Visita": tipo_visita
     }
     
+    entrada_adicionada = False
     if visita_cupula == "Sim" and sessao_selecionada:
         capacidade_restante = verificar_capacidade(sessao_selecionada, data_visita.isoformat())
         if qtd_visitantes <= capacidade_restante:
-            adicionar_entrada(nova_entrada)  # Adicionar a entrada antes da verificação da cúpula
+            adicionar_entrada(nova_entrada)
             adicionar_ingresso(sessao_selecionada, data_visita.isoformat(), qtd_visitantes, nome)
+            entrada_adicionada = True
         else:
             st.error(f"A capacidade da sessão {sessao_selecionada} é insuficiente. Restam {capacidade_restante} ingressos.")
     else:
         adicionar_entrada(nova_entrada)
+        entrada_adicionada = True
+    
+    if entrada_adicionada:
+        st.markdown(
+            """
+            <style>
+            .stApp {
+                background-color: black;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            """
+            <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+                <h1 style="color: white; text-align: center;">Obrigado por enviar seus dados!</h1>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.balloons()
