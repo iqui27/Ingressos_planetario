@@ -185,10 +185,12 @@ if st.button("Adicionar Entrada"):
                 align-items: center;
                 font-size: 2em;
                 z-index: 9999;
+                text-align: center;
             }
             </style>
             <div class="thank-you">
-                Obrigado pela sua visita!
+                Obrigado pela sua visita!<br>
+                Você receberá um email que deverá ser apresentado na recepção.
             </div>
             """, unsafe_allow_html=True)
         
