@@ -3,6 +3,12 @@ from firebase_admin import credentials, firestore
 import os
 import streamlit as st
 import pandas as pd
+import smtplib
+import qrcode
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+from io import BytesIO
 
 
 # Caminho para o arquivo de credenciais
@@ -173,4 +179,8 @@ def deletar_sessao(db, sessao_id):
         st.success("Sessão apagada com sucesso!")
     except Exception as e:
         st.error(f"Erro ao apagar sessão: {e}")
+
+# Função para enviar email com QR code
+
+
 
