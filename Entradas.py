@@ -100,9 +100,9 @@ for i in range(qtd_visitantes):
         "País": pais
     })
 
-data_visita = st.date_input("Data da Visita*", min_value=datetime.now().date(), key="data_visita")
+data_visita = st.datetime_input("Data e Hora da Visita*", min_value=datetime.now(), key="data_visita")
 if isinstance(data_visita, datetime):
-    data_visita = data_visita.date()
+    data_visita = data_visita.strftime("%Y-%m-%d %H:%M:%S")
 
 if st.button("Adicionar Entrada"):
     # Verificar se todos os campos obrigatórios foram preenchidos
