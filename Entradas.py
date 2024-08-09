@@ -17,6 +17,7 @@ from firebase_utils import initialize_firebase_from_json, initialize_firebase_fr
 
 # Caminho para o arquivo de credenciais
 cred_path = 'Planetario IAM Admin.json'
+
 def enviar_email(email_destino, subject, body, qr_img):
     sender_email = "planetariodebrasilia@gmail.com"
     sender_password = "cmjr hfxv wogp dxav"
@@ -44,7 +45,6 @@ def enviar_email(email_destino, subject, body, qr_img):
     except Exception as e:
         st.error(f"Erro ao enviar email: {str(e)}")
 
-
 # Verifica se o app já foi inicializado
 if not firebase_admin._apps:
     st.write("Inicializando Firebase...")
@@ -69,6 +69,15 @@ dias_da_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "
 horarios_visitantes_semana = ["18:00"]
 horarios_visitantes_fim_semana = ["11:00", "14:30", "16:00", "17:00", "18:00"]
 horarios_escolas_semana = ["08:15", "09:30", "14:00", "15:15"]
+
+# Função para marcar presença
+def marcar_presenca(nome):
+    visitante_ref = db.collection('Visitas').document(nome)
+    if visitante_ref.get().exists:
+        visitante_ref.update({'Presenca': True})
+        return f"Presença marcada para {nome}"
+    else:
+        return f"Visitante {nome} não encontrado"
 
 # Título da aplicação
 st.header("Formulario de Visitação")
@@ -100,9 +109,7 @@ for i in range(qtd_visitantes):
         "País": pais
     })
 
-data_visita = st.date_input("Data e Hora da Visita*", min_value=datetime.now(), key="data_visita")
-if isinstance(data_visita, datetime):
-    data_visita = data_visita.strftime("%Y-%m-%d %H:%M:%S")
+data_visita = st.date_input("Data da Visita*", min_value=datetime.now().date(), key="data_visita")
 
 if st.button("Adicionar Entrada"):
     # Verificar se todos os campos obrigatórios foram preenchidos
@@ -145,9 +152,9 @@ if st.button("Adicionar Entrada"):
             }
             adicionar_entrada(db, nova_entrada)
             
-            # Gerar QR code
-            qr_data = f"Nome: {visitante['Nome']}, Idade: {visitante['Idade']}, Etnia: {visitante['Etnia']}, Email: {visitante['Email']}, Cidade: {visitante['Cidade']}, Estado: {visitante['Estado']}, País: {visitante['País']}, Dia da Visita: {data_visita.isoformat()}"
-            qr_img = qrcode.make(qr_data)
+            # Gerar QR code com URL
+            url = f"https://iqui27-planetario-ingressos-planets-c3ddya.streamlit.app/?nome={visitante['Nome']}"
+            qr_img = qrcode.make(url)
             
             # Corpo do email
             body = f"""
@@ -163,7 +170,7 @@ if st.button("Adicionar Entrada"):
             País: {visitante['País']}
             Dia da Visita: {data_visita.isoformat()}
 
-            Anexado está o QR code para validação.
+            Anexado está o QR code para validação. Use este QR code para registrar sua presença na recepção.
             """
             
             # Enviar email com QR code
