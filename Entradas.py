@@ -12,6 +12,9 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from io import BytesIO
 
+# Adicione esta linha no início do seu script, logo após a importação do streamlit
+st.set_page_config(initial_sidebar_state="collapsed")
+
 # Importar funções do módulo
 from firebase_utils import initialize_firebase_from_json, initialize_firebase_from_env, adicionar_entrada, adicionar_entrada
 

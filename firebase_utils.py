@@ -283,7 +283,6 @@ def marcar_presenca(db, visitante_id):
         # Referência para o documento do visitante
         visitante_ref = db.collection('Visitas').document(visitante_id)
         
-        # Atualiza o campo 'Presenca' para True
         visitante_ref.update({'Presenca': True})
         
         return True, "Presença marcada com sucesso!"
