@@ -86,6 +86,7 @@ st.header("Formulario de Visitação")
 qtd_visitantes = st.number_input("Quantidade de Visitantes*", min_value=1, value=1, key="qtd_visitantes")
 
 visitantes = []
+email_principal = ""
 for i in range(qtd_visitantes):
     if i == 0:
         st.markdown("**Informações do Visitante**")
@@ -94,19 +95,31 @@ for i in range(qtd_visitantes):
     
     nome_visitante = st.text_input(f"Nome{' do Visitante ' + str(i+1) if i > 0 else ''} (Nome completo, pelo menos dois nomes)*", key=f"nome_visitante_{i}")
     idade = st.number_input(f"Idade{' do Visitante ' + str(i+1) if i > 0 else ''}*", min_value=0, max_value=120, value=18, key=f"idade_{i}")
+    genero = st.selectbox(f"Gênero{' do Visitante ' + str(i+1) if i > 0 else ''}*", ["Masculino", "Feminino", "Não-binário", "Prefiro não informar"], key=f"genero_{i}")
     etnia = st.selectbox(f"Etnia{' do Visitante ' + str(i+1) if i > 0 else ''}*", ["Branco", "Preto", "Pardo", "Amarelo", "Indígena", "Outro"], key=f"etnia_{i}")
-    email = st.text_input(f"Email{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"email_{i}")
+    
+    if i == 0:
+        email_principal = st.text_input(f"Email{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"email_{i}")
+    else:
+        usar_email_principal = st.checkbox(f"Usar o mesmo email do visitante principal para o Visitante {i+1}", key=f"usar_email_principal_{i}")
+        if usar_email_principal:
+            email = email_principal
+        else:
+            email = st.text_input(f"Email{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"email_{i}")
+    
     cidade = st.text_input(f"Cidade{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"cidade_{i}")
     estado = st.selectbox(f"Estado{' do Visitante ' + str(i+1) if i > 0 else ''}*", estados_brasil, key=f"estado_{i}")
     pais = st.text_input(f"País{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"pais_{i}")
     visitantes.append({
         "Nome": nome_visitante,
         "Idade": idade,
+        "Gênero": genero,
         "Etnia": etnia,
-        "Email": email,
+        "Email": email if i > 0 else email_principal,
         "Cidade": cidade,
         "Estado": estado,
-        "País": pais
+        "País": pais,
+        "Presenca": False
     })
 
 data_visita = st.date_input("Data da Visita*", min_value=datetime.now().date(), key="data_visita")
@@ -122,6 +135,7 @@ if st.button("Adicionar Entrada"):
         campos_obrigatorios.update({
             f"{prefix}Nome": visitante["Nome"],
             f"{prefix}Idade": visitante["Idade"],
+            f"{prefix}Gênero": visitante["Gênero"],
             f"{prefix}Etnia": visitante["Etnia"],
             f"{prefix}Email": visitante["Email"],
             f"{prefix}Cidade": visitante["Cidade"],
@@ -142,13 +156,16 @@ if st.button("Adicionar Entrada"):
             nova_entrada = {
                 "Nome": visitante["Nome"],
                 "Idade": visitante["Idade"],
+                "Gênero": visitante["Gênero"],
                 "Etnia": visitante["Etnia"],
                 "Email": visitante["Email"],
                 "Cidade": visitante["Cidade"],
                 "Estado": visitante["Estado"],
                 "País": visitante["País"],
                 "Dia da Visita": data_visita.isoformat(),
-                "Tipo de Visita": "Normal"
+                "Tipo de Visita": "Normal",
+                "Presenca": False
+
             }
             adicionar_entrada(db, nova_entrada)
             
@@ -163,6 +180,7 @@ if st.button("Adicionar Entrada"):
             Aqui estão os detalhes da sua visita:
             Nome: {visitante['Nome']}
             Idade: {visitante['Idade']}
+            Gênero: {visitante['Gênero']}
             Etnia: {visitante['Etnia']}
             Email: {visitante['Email']}
             Cidade: {visitante['Cidade']}
@@ -189,6 +207,7 @@ if st.button("Adicionar Entrada"):
                 color: white;
                 display: flex;
                 justify-content: center;
+                
                 align-items: center;
                 font-size: 2em;
                 z-index: 9999;
