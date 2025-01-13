@@ -204,7 +204,7 @@ with col2:
     # Formulário para cada visitante
     for i in range(qtd_visitantes):
         with st.container():
-            st.markdown(f"### {t('main_visitor') if i == 0 else f'{t('visitor')} {i+1}'}")
+            st.markdown(f"### {t('main_visitor') if i == 0 else t('visitor') + f' {i+1}'}")
             
             col1, col2 = st.columns(2)
             with col1:
