@@ -13,6 +13,68 @@ import traceback
 import sys
 
 
+# Adicione no início do arquivo
+EMAIL_TRANSLATIONS = {
+    'pt': {
+        'subject': 'Confirmação de Visita - Planetário de Brasília',
+        'body': """
+        Obrigado por se registrar para a visita.
+
+        Aqui estão os detalhes da sua visita:
+        Nome: {nome}
+        Idade: {idade}
+        Gênero: {genero}
+        Etnia: {etnia}
+        Email: {email}
+        Cidade: {cidade}
+        Estado: {estado}
+        País: {pais}
+        Dia da Visita: {data_visita}
+
+        Anexado está o QR code para validação. Use este QR code para registrar sua presença na recepção.
+        """
+    },
+    'en': {
+        'subject': 'Visit Confirmation - Brasília Planetarium',
+        'body': """
+        Thank you for registering for the visit.
+
+        Here are your visit details:
+        Name: {nome}
+        Age: {idade}
+        Gender: {genero}
+        Ethnicity: {etnia}
+        Email: {email}
+        City: {cidade}
+        State: {estado}
+        Country: {pais}
+        Visit Date: {data_visita}
+
+        Attached is the QR code for validation. Use this QR code to register your presence at reception.
+        """
+    },
+    'es': {
+        'subject': 'Confirmación de Visita - Planetario de Brasília',
+        'body': """
+        Gracias por registrarse para la visita.
+
+        Aquí están los detalles de su visita:
+        Nombre: {nome}
+        Edad: {idade}
+        Género: {genero}
+        Etnia: {etnia}
+        Correo: {email}
+        Ciudad: {cidade}
+        Estado: {estado}
+        País: {pais}
+        Fecha de Visita: {data_visita}
+
+        Adjunto está el código QR para validación. Use este código QR para registrar su presencia en la recepción.
+        """
+    }
+}
+
+
 # Caminho para o arquivo de credenciais
 cred_path = 'Planetario IAM Admin.json'
 
@@ -168,97 +230,81 @@ def adicionar_sessao(db, horario, data, nome_filme=None):
         st.error(f"Erro ao adicionar sessão: {e}")
 
 def gerar_qr_code(visitante_id):
-    # Cria a URL completa para marcar presença
+    # Mantém a mesma implementação
     base_url = "https://ingressosplanetario-production.up.railway.app"
     presenca_url = f"{base_url}/marcar_presenca?id={visitante_id}"
     
-    # Gera o QR code
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(presenca_url)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     
-    # Converte a imagem para bytes
     buffered = BytesIO()
     img.save(buffered, format="PNG")
     img_bytes = buffered.getvalue()
     
     return img_bytes
 
-def enviar_email(email_destino, subject, body, qr_code):
+def enviar_email(email_destino, subject, body, qr_code, language='pt'):
     sender_email = "planetariodebrasilia@gmail.com"
     sender_password = "cmjr hfxv wogp dxav"
 
     msg = MIMEMultipart()
     msg['From'] = sender_email
     msg['To'] = email_destino
-    msg['Subject'] = subject
+    msg['Subject'] = EMAIL_TRANSLATIONS[language]['subject']
 
     msg.attach(MIMEText(body, 'plain'))
-
-    # Anexar o QR code ao email
     image = MIMEImage(qr_code, name="qrcode.png")
     msg.attach(image)
 
     try:
-        st.write(f"Tentando enviar e-mail para {email_destino}")
+        st.write(f"Iniciando processo de envio de email para {email_destino}")
         with smtplib.SMTP('smtp.gmail.com', 587) as server:
             server.starttls()
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, email_destino, msg.as_string())
+            
         st.success(f"Email enviado com sucesso para {email_destino}")
-    except smtplib.SMTPAuthenticationError as e:
-        error_code = e.smtp_code
-        error_message = e.smtp_error
-        st.error(f"Erro de autenticação. Código: {error_code}, Mensagem: {error_message}")
-    except smtplib.SMTPException as e:
-        st.error(f"Erro SMTP ao enviar e-mail: {str(e)}")
-        st.error(f"Tipo de erro: {type(e).__name__}")
-        st.error(f"Argumentos do erro: {e.args}")
-    except Exception as e:
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        st.error(f"Erro inesperado ao enviar e-mail: {str(e)}")
-        st.error(f"Tipo de erro: {exc_type.__name__}")
-        st.error(f"Argumentos do erro: {exc_value.args}")
-        st.error("Traceback completo:")
-        st.error(traceback.format_exc())
-    
-    return False  # Retorna False se o email não foi enviado com sucesso
-
-def adicionar_entrada(db, entrada):
-    try:
-        st.write("Iniciando adição de entrada...")
-        # Adiciona a entrada e obtém a referência do documento
-        doc_ref = db.collection('Visitas').add(entrada)
+        return True
         
-        # Obtém o ID do documento
+    except Exception as e:
+        st.error(f"Erro ao enviar email: {str(e)}")
+        return False
+
+def adicionar_entrada(db, entrada, language='pt'):
+    try:
+        # Adiciona a entrada ao banco de dados
+        doc_ref = db.collection('Visitas').add(entrada)
         visitante_id = doc_ref[1].id
         
         # Gera o QR code
         qr_code = gerar_qr_code(visitante_id)
-        st.write("QR code gerado")
         
-        # Prepara o corpo do email
-        body = f"""
-        Obrigado por se registrar para a visita.
-
-        Aqui estão os detalhes da sua visita:
-        Nome: {entrada['Nome']}
-        Idade: {entrada['Idade']}
-        Gênero: {entrada['Gênero']}
-        Etnia: {entrada['Etnia']}
-        Email: {entrada['Email']}
-        Cidade: {entrada['Cidade']}
-        Estado: {entrada['Estado']}
-        País: {entrada['País']}
-        Dia da Visita: {entrada['Dia da Visita']}
-
-        Anexado está o QR code para validação. Use este QR code para registrar sua presença na recepção.
-        """
+        # Obtém o template do email no idioma correto
+        email_template = EMAIL_TRANSLATIONS[language]
         
-        st.write("Preparando para enviar e-mail...")
-        # Envia o email
-        email_enviado = enviar_email(entrada['Email'], 'Confirmação de Visita', body, qr_code)
+        # Prepara o corpo do email usando o template traduzido
+        body = email_template['body'].format(
+            nome=entrada['Nome'],
+            idade=entrada['Idade'],
+            genero=entrada['Gênero'],
+            etnia=entrada['Etnia'],
+            email=entrada['Email'],
+            cidade=entrada['Cidade'],
+            estado=entrada['Estado'],
+            pais=entrada['País'],
+            data_visita=entrada['Dia da Visita']
+        )
+        
+        # Envia o email no idioma selecionado
+        email_enviado = enviar_email(
+            email_destino=entrada['Email'],
+            subject=email_template['subject'],
+            body=body,
+            qr_code=qr_code,
+            language=language
+        )
         
         if email_enviado:
             st.success("Entrada adicionada com sucesso e email enviado!")
@@ -268,7 +314,6 @@ def adicionar_entrada(db, entrada):
         return visitante_id
     except Exception as e:
         st.error(f"Erro ao adicionar entrada: {e}")
-        st.error(traceback.format_exc())
         return None
 
 def deletar_sessao(db, sessao_id):

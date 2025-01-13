@@ -2,169 +2,340 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, date
 import calendar
-import firebase_admin
-from firebase_admin import credentials, firestore
+import firebase_admin 
+from firebase_admin import firestore
 import os
 import smtplib
-import qrcode
-from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
+import qrcode
 from io import BytesIO
 
-# Adicione esta linha no início do seu script, logo após a importação do streamlit
-st.set_page_config(initial_sidebar_state="collapsed")
+# Configuração da página
+st.set_page_config(
+    page_title="Planetário De Brasília - Agendamento",
+    page_icon="🔭",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# No início do arquivo, após as importações
+# Dicionário com as traduções
+TRANSLATIONS = {
+    'pt': {
+        'title': "Agendamento de Visita Planetário de Brasília",
+        'important_info': "Informações Importantes",
+        'info_bullets': [
+            "As visitas são gratuitas",
+            "Apresente o QR Code recebido por email na entrada",
+            "Chegue com 15 minutos de antecedência",
+            "Não é permitida a entrada após o início da sessão"
+        ],
+        'visit_date': "Data da Visita*",
+        'visitors_number': "Número de Visitantes*",
+        'main_visitor': "Dados do Visitante Principal",
+        'visitor': "Dados do Visitante",
+        'full_name': "Nome Completo*",
+        'email': "Email*",
+        'city': "Cidade*",
+        'age': "Idade*",
+        'state': "Estado*",
+        'country': "País*",
+        'gender': "Gênero*",
+        'ethnicity': "Etnia*",
+        'confirm_button': "Confirmar Agendamento",
+        'same_email': "Mesmo email do visitante principal",
+        'footer': "© 2024 Planetário De Brasília - Todos os direitos reservados"
+    },
+    'en': {
+        'title': "Visit Scheduling",
+        'important_info': "Important Information",
+        'info_bullets': [
+            "Visits are free",
+            "Present the QR Code received by email at the entrance",
+            "Arrive 15 minutes before",
+            "Entry is not allowed after the session starts"
+        ],
+        'visit_date': "Visit Date*",
+        'visitors_number': "Number of Visitors*",
+        'main_visitor': "Main Visitor Information",
+        'visitor': "Visitor Information",
+        'full_name': "Full Name*",
+        'email': "Email*",
+        'city': "City*",
+        'age': "Age*",
+        'state': "State*",
+        'country': "Country*",
+        'gender': "Gender*",
+        'ethnicity': "Ethnicity*",
+        'confirm_button': "Confirm Scheduling",
+        'same_email': "Same email as main visitor",
+        'footer': "© 2024 Brasília Planetarium - All rights reserved"
+    },
+    'es': {
+        'title': "Programación de Visitas",
+        'important_info': "Información Importante",
+        'info_bullets': [
+            "Las visitas son gratuitas",
+            "Presente el código QR recibido por correo electrónico en la entrada",
+            "Llegue 15 minutos antes",
+            "No se permite la entrada después del inicio de la sesión"
+        ],
+        'visit_date': "Fecha de Visita*",
+        'visitors_number': "Número de Visitantes*",
+        'main_visitor': "Información del Visitante Principal",
+        'visitor': "Información del Visitante",
+        'full_name': "Nombre Completo*",
+        'email': "Correo Electrónico*",
+        'city': "Ciudad*",
+        'age': "Edad*",
+        'state': "Estado*",
+        'country': "País*",
+        'gender': "Género*",
+        'ethnicity': "Etnia*",
+        'confirm_button': "Confirmar Programación",
+        'same_email': "Mismo correo que el visitante principal",
+        'footer': "© 2024 Planetario de Brasília - Todos los derechos reservados"
+    }
+}
+
+
+
+# Função para obter texto traduzido
+def t(key):
+    return TRANSLATIONS[language][key]
+
+# Estilo personalizado
+st.markdown("""
+    <style>
+    .main {
+        padding: 2rem;
+    }
+    .stButton>button {
+        width: 100%;
+        background-color: #2E4053;
+        color: white;
+        height: 3em;
+        border-radius: 10px;
+    }
+    .stTextInput>div>div>input {
+        border-radius: 5px;
+    }
+    .stSelectbox>div>div>select {
+        border-radius: 5px;
+    }
+    .stNumberInput>div>div>input {
+        border-radius: 5px;
+    }
+    h1 {
+        color: #2E4053;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .info-box {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Importar funções do módulo
 from firebase_utils import initialize_firebase_from_json, initialize_firebase_from_env, adicionar_entrada, adicionar_entrada
 
-# Caminho para o arquivo de credenciais
-cred_path = 'Planetario IAM Admin.json'
-
-
-# Verifica se o app já foi inicializado
+# Configuração do Firebase
 if not firebase_admin._apps:
-    st.write("Inicializando Firebase...")
-    if os.path.exists(cred_path):
-        if not initialize_firebase_from_json():
-            initialize_firebase_from_env()
+    if os.path.exists('Planetario IAM Admin.json'):
+        initialize_firebase_from_json()
     else:
         initialize_firebase_from_env()
-else:
-    st.info("Firebase já está inicializado.")
 
-# Inicializa o Firestore
 try:
     db = firestore.client()
-    st.success("Firestore inicializado com sucesso!")
 except Exception as e:
-    st.error(f"Erro ao inicializar Firestore: {str(e)}")
+    st.error(f"Erro ao conectar ao banco de dados: {str(e)}")
 
-# Dados auxiliares (estados do Brasil, etc.)
-estados_brasil = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
-dias_da_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
-horarios_visitantes_semana = ["18:00"]
-horarios_visitantes_fim_semana = ["11:00", "14:30", "16:00", "17:00", "18:00"]
-horarios_escolas_semana = ["08:15", "09:30", "14:00", "15:15"]
+# Dados auxiliares
+estados_brasil = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", 
+                 "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", 
+                 "SP", "SE", "TO"]
 
+# Adicione o seletor de idioma no topo, centralizado
+_, col_lang, _ = st.columns([4,1,4])
+with col_lang:
+    language = st.selectbox(
+        "🌎 Language / Idioma",
+        ['pt', 'en', 'es'],
+        format_func=lambda x: {
+            'pt': 'Português',
+            'en': 'English',
+            'es': 'Español'
+        }[x],
+        key="language_selector"
+    )
 
-# Título da aplicação
-st.header("Formulario de Visitação")
+# Atualizar o código existente para usar as traduções
+col1, col2, col3 = st.columns([1,2,1])
+with col2:
+    st.title(t('title'))
 
-# Removido tipo de visita, deixando apenas visitante
-qtd_visitantes = st.number_input("Quantidade de Visitantes*", min_value=1, value=1, key="qtd_visitantes")
+    with st.expander(f"ℹ️ {t('important_info')}", expanded=True):
+        st.info("\n".join([f"- {bullet}" for bullet in t('info_bullets')]))
 
-visitantes = []
-email_principal = ""
-for i in range(qtd_visitantes):
-    if i == 0:
-        st.markdown("**Informações do Visitante**")
-    else:
-        st.markdown(f"**Informações do Visitante {i+1}**")
+    # Seleção de data e quantidade de visitantes
+    col_data, col_qtd = st.columns(2)
+    with col_data:
+        data_visita = st.date_input(
+            t('visit_date'),
+            min_value=datetime.now().date(),
+            help="Selecione a data desejada para sua visita"
+        )
+    with col_qtd:
+        qtd_visitantes = st.number_input(
+            t('visitors_number'),
+            min_value=1,
+            max_value=10,
+            value=1,
+            help="Máximo de 10 visitantes por agendamento"
+        )
+
+    # Formulário para cada visitante
+    for i in range(qtd_visitantes):
+        with st.container():
+            st.markdown(f"### {t('main_visitor') if i == 0 else f'{t('visitor')} {i+1}'}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                nome = st.text_input(t('full_name'), key=f"nome_{i}")
+                email = st.text_input(
+                    t('email'),
+                    key=f"email_{i}",
+                    disabled=i > 0 and st.checkbox(t('same_email'), key=f"mesmo_email_{i}")
+                )
+                cidade = st.text_input(t('city'), key=f"cidade_{i}")
+            
+            with col2:
+                idade = st.number_input(t('age'), min_value=0, max_value=120, value=18, key=f"idade_{i}")
+                estado = st.selectbox(t('state'), estados_brasil, key=f"estado_{i}")
+                pais = st.text_input(t('country'), value="Brasil", key=f"pais_{i}")
+
+            col3, col4 = st.columns(2)
+            with col3:
+                genero = st.selectbox(
+                    t('gender'),
+                    ["Masculino", "Feminino", "Não-binário", "Prefiro não informar"],
+                    key=f"genero_{i}"
+                )
+            with col4:
+                etnia = st.selectbox(
+                    t('ethnicity'),
+                    ["Branco", "Preto", "Pardo", "Amarelo", "Indígena", "Outro"],
+                    key=f"etnia_{i}"
+                )
+            st.divider()
+
     
-    nome_visitante = st.text_input(f"Nome{' do Visitante ' + str(i+1) if i > 0 else ''} (Nome completo, pelo menos dois nomes)*", key=f"nome_visitante_{i}")
-    idade = st.number_input(f"Idade{' do Visitante ' + str(i+1) if i > 0 else ''}*", min_value=0, max_value=120, value=18, key=f"idade_{i}")
-    genero = st.selectbox(f"Gênero{' do Visitante ' + str(i+1) if i > 0 else ''}*", ["Masculino", "Feminino", "Não-binário", "Prefiro não informar"], key=f"genero_{i}")
-    etnia = st.selectbox(f"Etnia{' do Visitante ' + str(i+1) if i > 0 else ''}*", ["Branco", "Preto", "Pardo", "Amarelo", "Indígena", "Outro"], key=f"etnia_{i}")
-    
-    if i == 0:
-        email_principal = st.text_input(f"Email{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"email_{i}")
-    else:
-        usar_email_principal = st.checkbox(f"Usar o mesmo email do visitante principal para o Visitante {i+1}", key=f"usar_email_principal_{i}")
-        if usar_email_principal:
-            email = email_principal
-        else:
-            email = st.text_input(f"Email{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"email_{i}")
-    
-    cidade = st.text_input(f"Cidade{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"cidade_{i}")
-    estado = st.selectbox(f"Estado{' do Visitante ' + str(i+1) if i > 0 else ''}*", estados_brasil, key=f"estado_{i}")
-    pais = st.text_input(f"País{' do Visitante ' + str(i+1) if i > 0 else ''}*", key=f"pais_{i}")
-    visitantes.append({
-        "Nome": nome_visitante,
-        "Idade": idade,
-        "Gênero": genero,
-        "Etnia": etnia,
-        "Email": email if i > 0 else email_principal,
-        "Cidade": cidade,
-        "Estado": estado,
-        "País": pais,
-        "Presenca": False
-    })
 
-data_visita = st.date_input("Data da Visita*", min_value=datetime.now().date(), key="data_visita")
-
-if st.button("Adicionar Entrada"):
-    # Verificar se todos os campos obrigatórios foram preenchidos
-    campos_obrigatorios = {
-        "Data da Visita": data_visita,
-    }
-    
-    for i, visitante in enumerate(visitantes):
-        prefix = f"Visitante {i+1} - " if i > 0 else ""
-        campos_obrigatorios.update({
-            f"{prefix}Nome": visitante["Nome"],
-            f"{prefix}Idade": visitante["Idade"],
-            f"{prefix}Gênero": visitante["Gênero"],
-            f"{prefix}Etnia": visitante["Etnia"],
-            f"{prefix}Email": visitante["Email"],
-            f"{prefix}Cidade": visitante["Cidade"],
-            f"{prefix}Estado": visitante["Estado"],
-            f"{prefix}País": visitante["País"]
-        })
-
-    campos_vazios = [campo for campo, valor in campos_obrigatorios.items() if not valor]
-    
-    nomes_invalidos = [visitante["Nome"] for visitante in visitantes if len(visitante["Nome"].strip().split()) < 2]
-    
-    if campos_vazios:
-        st.error(f"Por favor, preencha os seguintes campos obrigatórios: {', '.join(campos_vazios)}")
-    elif nomes_invalidos:
-        st.error(f"Por favor, insira nomes completos para os seguintes visitantes: {', '.join(nomes_invalidos)}")
-    else:
-        for visitante in visitantes:
-            nova_entrada = {
-                "Nome": visitante["Nome"],
-                "Idade": visitante["Idade"],
-                "Gênero": visitante["Gênero"],
-                "Etnia": visitante["Etnia"],
-                "Email": visitante["Email"],
-                "Cidade": visitante["Cidade"],
-                "Estado": visitante["Estado"],
-                "País": visitante["País"],
-                "Dia da Visita": data_visita.isoformat(),
-                "Tipo de Visita": "Normal",
+        # Botão de confirmação
+    if st.button(t('confirm_button'), use_container_width=True):
+        # Verificar se todos os campos obrigatórios foram preenchidos
+        visitantes = []
+        campos_vazios = []
+        
+        for i in range(qtd_visitantes):
+            # Obtém os valores dos campos para cada visitante
+            nome = st.session_state.get(f"nome_{i}")
+            idade = st.session_state.get(f"idade_{i}")
+            genero = st.session_state.get(f"genero_{i}")
+            etnia = st.session_state.get(f"etnia_{i}")
+            email = st.session_state.get(f"email_{i}")
+            cidade = st.session_state.get(f"cidade_{i}")
+            estado = st.session_state.get(f"estado_{i}")
+            pais = st.session_state.get(f"pais_{i}")
+            
+            # Verifica campos vazios
+            prefix = f"Visitante {i+1} - " if i > 0 else ""
+            if not nome:
+                campos_vazios.append(f"{prefix}Nome")
+            if not email and (i == 0 or not st.session_state.get(f"mesmo_email_{i}")):
+                campos_vazios.append(f"{prefix}Email")
+            if not cidade:
+                campos_vazios.append(f"{prefix}Cidade")
+            
+            # Se estiver usando o email do visitante principal
+            if i > 0 and st.session_state.get(f"mesmo_email_{i}"):
+                email = st.session_state.get("email_0")
+            
+            visitante = {
+                "Nome": nome,
+                "Idade": idade,
+                "Gênero": genero,
+                "Etnia": etnia,
+                "Email": email,
+                "Cidade": cidade,
+                "Estado": estado,
+                "País": pais,
                 "Presenca": False
             }
-            visitante_id = adicionar_entrada(db, nova_entrada)
-            
-            if visitante_id:
-                st.success(f"Entrada adicionada e email enviado para {visitante['Nome']}")
-            else:
-                st.error(f"Falha ao adicionar entrada para {visitante['Nome']}")
-        # Exibir tela de agradecimento
-        st.markdown("""
-            <style>
-            .thank-you {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: black;
-                color: white;
-                display: flex;
-                justify-content: center;
-                
-                align-items: center;
-                font-size: 2em;
-                z-index: 9999;
-                text-align: center;
-            }
-            </style>
-            <div class="thank-you">
-                Obrigado pela sua visita!<br>
-                Você receberá um email que deverá ser apresentado na recepção.
-            </div>
-            """, unsafe_allow_html=True)
+            visitantes.append(visitante)
         
-        st.stop()
+        # Validação de nomes completos
+        nomes_invalidos = [v["Nome"] for v in visitantes if v["Nome"] and len(v["Nome"].strip().split()) < 2]
+        
+        if campos_vazios:
+            st.error(f"Por favor, preencha os seguintes campos obrigatórios: {', '.join(campos_vazios)}")
+        elif nomes_invalidos:
+            st.error("Por favor, insira nomes completos (mínimo dois nomes) para todos os visitantes.")
+        else:
+            # Adicionar entradas ao banco de dados
+            for visitante in visitantes:
+                nova_entrada = {
+                    **visitante,
+                    "Dia da Visita": data_visita.isoformat(),
+                    "Tipo de Visita": "Normal"
+                }
+                
+                try:
+                    visitante_id = adicionar_entrada(db, nova_entrada)
+                    if visitante_id:
+                        st.success(f"Agendamento confirmado para {visitante['Nome']}")
+                    else:
+                        st.error(f"Falha ao confirmar agendamento para {visitante['Nome']}")
+                except Exception as e:
+                    st.error(f"Erro ao processar agendamento: {str(e)}")
+            
+            # Exibir tela de agradecimento
+            st.markdown("""
+                <style>
+                .thank-you {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: black;
+                    color: white;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    font-size: 2em;
+                    z-index: 9999;
+                    text-align: center;
+                }
+                </style>
+                <div class="thank-you">
+                    Obrigado pela sua visita!<br>
+                    Você receberá um email que deverá ser apresentado na recepção.
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.stop()
+
+# Rodapé
+st.markdown("""
+    <div style='text-align: center; color: gray; padding: 20px;'>
+        © 2024 Planetário De Brasília - Todos os direitos reservados
+    </div>
+""", unsafe_allow_html=True)
